@@ -3,6 +3,9 @@ import Swipelist from 'react-native-swipeable-list-view';
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import articles from './articles.json'
+import RNBootSplash from "react-native-bootsplash";
+
 
 var timerRef = null;
 var page = 1;
@@ -22,13 +25,19 @@ const App = () => {
                 }
             });
             if (resposne.status == 200) {
+                RNBootSplash.hide({ fade: true, duration: 500 });
                 setAPICallDone(true)
                 await AsyncStorage.setItem('headlines', JSON.stringify(resposne.data.articles));
+                // await AsyncStorage.setItem('headlines', JSON.stringify(articles.articles));
                 const storedHeadlines = await AsyncStorage.getItem('headlines');
                 const parsedHeadlines = JSON.parse(storedHeadlines);
                 const batch = parsedHeadlines.splice(0, 10);
                 setHeadlines((prevHeadlines) => [...batch, ...prevHeadlines,]);
                 await AsyncStorage.setItem('headlines', JSON.stringify(parsedHeadlines));
+            } else {
+                clearInterval(timerRef);
+                timerRef = null;
+                setAPICallDone(false)
             }
         } catch (error) {
             console.log(error.response);
@@ -102,16 +111,19 @@ const App = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold' }}> News App </Text>
             <Button title='Fetch New Batch' onPress={onButtonPress} />
             <ScrollView>
                 <Swipelist
                     data={pinnedItems}
-                    renderRightItem={(item) =>
+                    renderRightItem={(item) => (
                         <View style={styles.headlineContainer}>
-                            <Text style={styles.headlineTitle}>{item.title}</Text>
+                            <Image source={item.media ? { uri: item.media } : require('./assets/empty.jpg')} style={{ width: 50, height: 40 }} />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={styles.headlineTitle}>{item.title}</Text>
+                                <Text style={styles.headlineExcerpt}>{item.excerpt}</Text>
+                            </View>
                         </View>
-                    }
+                    )}
                     renderHiddenItem={(data, index) => (
                         <View style={{ flexDirection: 'row' }}>
                             <TouchableOpacity
@@ -133,13 +145,14 @@ const App = () => {
                 <Swipelist
                     data={headlines}
                     renderRightItem={(item) => (
-                        <View style={styles.headlineContainer}>
-                            <Image source={item.media ? { uri: item.media } : require('./assets/empty.jpg')} style={{ width: 50, height: 40 }} />
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.headlineTitle}>{item.title}</Text>
-                                {item.isPinned ? null : <Text style={styles.headlineExcerpt}>{item.excerpt}</Text>}
-                            </View>
-                        </View>
+                        !item.isPinned ?
+                            <View style={styles.headlineContainer}>
+                                <Image source={item.media ? { uri: item.media } : require('./assets/empty.jpg')} style={{ width: 50, height: 40 }} />
+                                <View style={{ flex: 1, marginLeft: 10 }}>
+                                    <Text style={styles.headlineTitle}>{item.title}</Text>
+                                    <Text style={styles.headlineExcerpt}>{item.excerpt}</Text>
+                                </View>
+                            </View> : <></>
                     )}
                     renderHiddenItem={(data, index) => (
                         <View style={{ flexDirection: 'row', alignContent: 'center' }}>
@@ -187,6 +200,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: 'black',
+    },
+    headlineExcerpt: {
+        fontSize: 14,
+        color: 'gray',
     },
     rightAction: {
         width: '100%',
